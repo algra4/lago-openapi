@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: Lago API documentation
   description: Lago API allows your application to push customer information and metrics (events) from your application to the billing application.
-  version: 1.5.0
+  version: 1.6.0
   license:
     name: AGPLv3
   contact:
@@ -11,7 +11,13 @@ externalDocs:
   description: Lago Github
   url: 'https://github.com/getlago'
 servers:
-  - url: 'https://api.getlago.com/api/v1'
+  - url: 'https://{region}.getlago.com/api/v1'
+    variables:
+      region:
+        default: api
+        enum:
+          - api
+          - api.eu
 security:
   - bearerAuth: []
 tags:
@@ -1533,6 +1539,14 @@ paths:
               - pending
               - failed
               - succeeded
+        - name: payment_overdue
+          in: query
+          description: Filter invoices by payment_overdue. Possible values are `true` or `false`.
+          required: false
+          explode: true
+          schema:
+            type: boolean
+            example: true
       responses:
         '200':
           description: Invoices
@@ -4862,7 +4876,12 @@ components:
       type: object
       description: Configuration specific to the accounting and tax integrations. This object contains settings and parameters necessary for syncing documents and payments.
       properties:
-        integration_type:
+        lago_id:
+          type: string
+          format: uuid
+          example: 1a901a90-1a90-1a90-1a90-1a901a901a90
+          description: A unique identifier for the integration customer object in the Lago application.
+        type:
           type: string
           example: netsuite
           description: |-
@@ -5199,8 +5218,40 @@ components:
               nullable: true
             billing_configuration:
               $ref: '#/components/schemas/CustomerBillingConfiguration'
-            integration_customer:
-              $ref: '#/components/schemas/IntegrationCustomer'
+            integration_customers:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                    example: 1a901a90-1a90-1a90-1a90-1a901a901a90
+                    description: A unique identifier for the integration customer object in the Lago application.
+                  integration_type:
+                    type: string
+                    example: netsuite
+                    description: |-
+                      The integration type used for accounting and tax syncs.
+                      Accepted values: `netsuite`.
+                    enum:
+                      - netsuite
+                  integration_code:
+                    type: string
+                    example: netsuite-eu-1
+                    description: Unique code used to identify an integration connection.
+                  external_customer_id:
+                    type: string
+                    example: cus_12345
+                    description: 'The customer ID within the integration''s system. If this field is not provided, Lago has the option to create a new customer record within the integration''s system on behalf of the customer.'
+                  sync_with_provider:
+                    type: boolean
+                    example: true
+                    description: 'Set this field to `true` if you want to create a customer record in the integration''s system. This option is applicable only when the `external_customer_id` is null and the `sync_with_provider` field is set to `true`. By default, the value is set to `false`'
+                  subsidiary_id:
+                    type: string
+                    example: '2'
+                    description: This optional field is needed only when working with `netsuite` connection.
             metadata:
               type: array
               description: Set of key-value pairs that you can attach to a customer. This can be useful for storing additional information about the customer in a structured format
@@ -5391,8 +5442,10 @@ components:
           description: 'The date of the customer update, represented in ISO 8601 datetime format and expressed in Coordinated Universal Time (UTC). The update_date provides a standardized and internationally recognized timestamp for when the customer object was updated'
         billing_configuration:
           $ref: '#/components/schemas/CustomerBillingConfiguration'
-        integration_customer:
-          $ref: '#/components/schemas/IntegrationCustomer'
+        integration_customers:
+          type: array
+          items:
+            $ref: '#/components/schemas/IntegrationCustomer'
         metadata:
           type: array
           items:
@@ -6485,6 +6538,10 @@ components:
           format: date
           description: 'The payment due date for the invoice, specified in the ISO 8601 date format.'
           example: '2022-04-30'
+        payment_overdue:
+          type: boolean
+          description: Specifies if the payment is considered as overdue.
+          example: true
         net_payment_term:
           type: integer
           example: 30
